@@ -70,24 +70,20 @@ def process_pdf(file_path, poppler_path=None):
     dir_name = os.path.dirname(file_path)
     base_name = os.path.basename(file_path)
     backup_path = os.path.join(dir_name, base_name + ".backup")
-
     try:
         shutil.copy(file_path, backup_path)
         print(f"Backup created: {backup_path}")
     except Exception as e:
         messagebox.showerror("Error", f"Failed to create backup copy:\n{e}")
         return
-
     try:
         reader = PdfReader(file_path)
     except Exception as e:
         messagebox.showerror("Error", f"Failed to read PDF:\n{e}")
         return
-
     writer = PdfWriter()
     removed_pages = 0
     total_pages = len(reader.pages)
-
     # Process each page: add non-blank pages to the writer.
     for i, page in enumerate(reader.pages, start=1):
         if is_blank_page(page, file_path, i, poppler_path):
@@ -95,11 +91,9 @@ def process_pdf(file_path, poppler_path=None):
             print(f"Page {i} is blank and will be removed.")
         else:
             writer.add_page(page)
-
     if len(writer.pages) == 0:
         messagebox.showwarning("Warning", "All pages are blank. The PDF will not be modified.")
         return
-
     # Write the modified PDF to a temporary file first.
     temp_file = file_path + ".temp"
     try:
@@ -109,7 +103,6 @@ def process_pdf(file_path, poppler_path=None):
     except Exception as e:
         messagebox.showerror("Error", f"Failed to write modified PDF:\n{e}")
         return
-
     # Replace the original file with the modified file.
     try:
         shutil.move(temp_file, file_path)
@@ -117,37 +110,59 @@ def process_pdf(file_path, poppler_path=None):
     except Exception as e:
         messagebox.showerror("Error", f"Failed to replace the original PDF:\n{e}")
         return
-
     # Delete the backup copy since the process finished successfully.
     try:
         os.remove(backup_path)
         print("Backup copy deleted.")
     except Exception as e:
         print(f"Could not remove backup copy: {e}")
-
     messagebox.showinfo("Success",
                         f"Modified PDF saved.\nTotal pages: {total_pages}\nRemoved blank pages: {removed_pages}")
 
 
+def process_folder(poppler_path=None):
+    """
+    Process all PDF files in a selected folder.
+    """
+    folder_path = filedialog.askdirectory(title="Select a Folder containing PDF files")
+    if not folder_path:
+        messagebox.showinfo("Info", "No folder selected.")
+        return
+    pdf_files = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if f.lower().endswith(".pdf")]
+    if not pdf_files:
+        messagebox.showinfo("Info", "No PDF files found in the selected folder.")
+        return
+    processed_count = 0
+    for file_path in pdf_files:
+        process_pdf(file_path, poppler_path)
+        processed_count += 1
+    messagebox.showinfo("Success", f"Processed {processed_count} PDF files.")
+
+
 def main():
-    # Create a simple Tkinter file dialog to choose the PDF file.
+    # Create a simple Tkinter file dialog to choose the PDF file or folder.
     root = tk.Tk()
     root.withdraw()  # Hide the main window.
-    file_path = filedialog.askopenfilename(title="Select a PDF file",
-                                           filetypes=[("PDF files", "*.pdf")])
-    if not file_path:
-        messagebox.showinfo("Info", "No file selected.")
-        return
 
-    # Optionally, if you need to specify the Poppler path (e.g., on Windows), set it here:
-    poppler_path = None
-    # Example for Windows (uncomment and set your actual path):
-    # poppler_path = r"C:\path\to\poppler\bin"
+    # Ask the user if they want to process an entire folder of PDFs.
+    if messagebox.askyesno("Select Processing Mode", "Would you like to process an entire folder of PDFs? Click Yes for folder, No for a single file."):
+        # Optionally, if you need to specify the Poppler path (e.g., on Windows), set it here:
+        poppler_path = None
+        # Example for Windows (uncomment and set your actual path):
+        # poppler_path = r"C:\path\to\poppler\bin"
+        process_folder(poppler_path)
+    else:
+        file_path = filedialog.askopenfilename(title="Select a PDF file",
+                                               filetypes=[("PDF files", "*.pdf")])
+        if not file_path:
+            messagebox.showinfo("Info", "No file selected.")
+            return
 
-    # Optionally, if Tesseract is not in PATH, specify its location:
-    # pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-
-    process_pdf(file_path, poppler_path)
+        # Optionally, if you need to specify the Poppler path (e.g., on Windows), set it here:
+        poppler_path = None
+        # Example for Windows (uncomment and set your actual path):
+        # poppler_path = r"C:\path\to\poppler\bin"
+        process_pdf(file_path, poppler_path)
 
 
 if __name__ == "__main__":
